@@ -1,43 +1,48 @@
-const GOOGLE_MAPS_API_KEY =
-  process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || 'YOUR_GOOGLE_MAPS_API_KEY';
+/**
+ * Reverse geocoding using OpenStreetMap Nominatim.
+ * Free, no API key required, works globally.
+ * Rate limit: 1 request/second (fine for this use case).
+ */
 
 interface GeoResult {
-  locationArea: string;  // e.g. "South Luzon Rizal"
-  locationName: string;  // e.g. "Taytay San Juan"
+  locationArea: string;  // e.g. "Rizal"
+  locationName: string;  // e.g. "Taytay"
 }
 
-/**
- * Convert lat/long to human-readable location names.
- * Uses Google Maps Geocoding API.
- * Falls back to coordinate string if API fails.
- */
 export async function reverseGeocode(lat: number, lon: number): Promise<GeoResult> {
   try {
-    const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lon}&key=${GOOGLE_MAPS_API_KEY}`;
-    const res = await fetch(url);
+    const url =
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&zoom=14`;
+
+    const res = await fetch(url, {
+      headers: {
+        // Required by Nominatim ToS: identify your app
+        'User-Agent': 'Marki-Attendance-App/1.0 (internal@spxexpress.com)',
+        'Accept-Language': 'en',
+      },
+    });
+
+    if (!res.ok) return fallback(lat, lon);
+
     const data = await res.json();
+    const addr = data.address || {};
 
-    if (data.status !== 'OK' || !data.results?.length) {
-      return fallback(lat, lon);
-    }
+    // Line 1 (area): province or state
+    const area =
+      addr.province ||
+      addr.state ||
+      addr.county ||
+      addr.region ||
+      'Unknown Area';
 
-    const components = data.results[0].address_components as Array<{
-      long_name: string;
-      types: string[];
-    }>;
-
-    const get = (type: string) =>
-      components.find((c) => c.types.includes(type))?.long_name || '';
-
-    // Line 1: Province / Region (administrative_area_level_2 or sublocality_level_1)
-    const province = get('administrative_area_level_2') || get('administrative_area_level_1');
-    // Line 2: City + Barangay / sublocality
-    const city = get('locality') || get('administrative_area_level_3');
-    const barangay = get('sublocality_level_1') || get('neighborhood');
+    // Line 2 (name): city/municipality + barangay/suburb
+    const city = addr.city || addr.town || addr.municipality || addr.village || '';
+    const suburb = addr.suburb || addr.neighbourhood || addr.quarter || '';
+    const name = [suburb, city].filter(Boolean).join(' ') || 'Unknown Location';
 
     return {
-      locationArea: province || 'Unknown Area',
-      locationName: [barangay, city].filter(Boolean).join(' ') || 'Unknown Location',
+      locationArea: area,
+      locationName: name,
     };
   } catch {
     return fallback(lat, lon);
@@ -52,7 +57,7 @@ function fallback(lat: number, lon: number): GeoResult {
 }
 
 /**
- * Format decimal degrees to DMS string: 14°32'59.4359"N
+ * Format decimal degrees to DMS: 14°32'59.4359"N
  */
 export function toDMS(decimal: number, isLat: boolean): string {
   const abs = Math.abs(decimal);
@@ -60,10 +65,6 @@ export function toDMS(decimal: number, isLat: boolean): string {
   const minFull = (abs - deg) * 60;
   const min = Math.floor(minFull);
   const sec = ((minFull - min) * 60).toFixed(4);
-
-  const dir = isLat
-    ? decimal >= 0 ? 'N' : 'S'
-    : decimal >= 0 ? 'E' : 'W';
-
+  const dir = isLat ? (decimal >= 0 ? 'N' : 'S') : (decimal >= 0 ? 'E' : 'W');
   return `${deg}°${min}'${sec}"${dir}`;
 }
