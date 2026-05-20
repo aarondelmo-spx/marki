@@ -14,21 +14,37 @@ export function useAuth(): AuthState {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        const snap = await getDoc(doc(db, 'users', firebaseUser.uid));
-        if (snap.exists()) {
-          setUser(snap.data() as UserProfile);
-        } else {
+    // Safety timeout — if Firebase doesn't respond in 8s, show login screen
+    const timeout = setTimeout(() => setLoading(false), 8000);
+
+    const unsub = onAuthStateChanged(
+      auth,
+      async (firebaseUser) => {
+        clearTimeout(timeout);
+        try {
+          if (firebaseUser) {
+            const snap = await getDoc(doc(db, 'users', firebaseUser.uid));
+            setUser(snap.exists() ? (snap.data() as UserProfile) : null);
+          } else {
+            setUser(null);
+          }
+        } catch {
           setUser(null);
         }
-      } else {
-        setUser(null);
+        setLoading(false);
+      },
+      (error) => {
+        // Auth error (e.g. network, bad config) — fall through to login
+        console.error('Auth error:', (error as any).code, error.message);
+        clearTimeout(timeout);
+        setLoading(false);
       }
-      setLoading(false);
-    });
+    );
 
-    return unsub;
+    return () => {
+      clearTimeout(timeout);
+      unsub();
+    };
   }, []);
 
   return { user, loading };
