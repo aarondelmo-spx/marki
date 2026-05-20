@@ -76,8 +76,9 @@ export default function CameraScreen({ navigation, user }: Props) {
     if (!photoMeta || !rawPhotoUri) return;
     setStage('saving');
     try {
-      // Capture the stamp overlay view (photo + text already rendered on screen)
-      const stampedUri = await burnStamp(stampRef, photoMeta.timestamp);
+      // Snapshot the stamp overlay (photo + text rendered on screen).
+      // Falls back to raw photo if view-shot native module is unavailable.
+      const stampedUri = await burnStamp(stampRef, rawPhotoUri);
 
       const d = new Date(photoMeta.timestamp);
       const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;

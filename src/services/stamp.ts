@@ -1,22 +1,30 @@
 import { RefObject } from 'react';
 import { View } from 'react-native';
-import { captureRef } from 'react-native-view-shot';
 
 /**
- * Capture the PhotoStampOverlay view (which has the photo + text overlay
- * already rendered) and save it to the cache as a JPEG.
+ * Capture the PhotoStampOverlay view as a JPEG using react-native-view-shot.
+ * The view already has the photo + metadata text rendered — we snapshot it.
  *
- * This replaces the previous Skia-based approach. The view is already
- * rendered on screen, so we just snapshot it — no native canvas needed.
+ * Falls back to rawPhotoUri if view-shot is unavailable in this environment
+ * (e.g. an Expo Go build that doesn't include RNViewShot).
  */
 export async function burnStamp(
   viewRef: RefObject<View | null>,
-  timestamp: number
+  rawPhotoUri: string,
 ): Promise<string> {
-  const uri = await captureRef(viewRef, {
-    format: 'jpg',
-    quality: 0.9,
-    result: 'tmpfile',
-  });
-  return uri;
+  try {
+    // Dynamic require so a missing native module doesn't crash at startup.
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { captureRef } = require('react-native-view-shot') as typeof import('react-native-view-shot');
+    const uri = await captureRef(viewRef, {
+      format: 'jpg',
+      quality: 0.9,
+      result: 'tmpfile',
+    });
+    return uri;
+  } catch {
+    // View-shot not available — upload the original (unstamped) photo.
+    console.warn('[burnStamp] react-native-view-shot unavailable, using raw photo');
+    return rawPhotoUri;
+  }
 }
