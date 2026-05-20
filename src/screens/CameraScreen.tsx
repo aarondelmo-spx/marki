@@ -6,7 +6,6 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
-  Image,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Location from 'expo-location';
@@ -26,6 +25,7 @@ type Stage = 'camera' | 'preview' | 'saving';
 
 export default function CameraScreen({ navigation, user }: Props) {
   const cameraRef = useRef<CameraView>(null);
+  const stampRef = useRef<View>(null);
 
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [locationGranted, setLocationGranted] = useState(false);
@@ -76,16 +76,8 @@ export default function CameraScreen({ navigation, user }: Props) {
     if (!photoMeta || !rawPhotoUri) return;
     setStage('saving');
     try {
-      // Burn stamp onto photo using Skia (pure JS, works in Expo Go)
-      const stampedUri = await burnStamp(rawPhotoUri, {
-        timestamp: photoMeta.timestamp,
-        latitude: photoMeta.latitude,
-        longitude: photoMeta.longitude,
-        locationArea: photoMeta.locationArea,
-        locationName: photoMeta.locationName,
-        userName: user.name,
-        userId: user.uid,
-      });
+      // Capture the stamp overlay view (photo + text already rendered on screen)
+      const stampedUri = await burnStamp(stampRef, photoMeta.timestamp);
 
       const d = new Date(photoMeta.timestamp);
       const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -130,8 +122,9 @@ export default function CameraScreen({ navigation, user }: Props) {
   if ((stage === 'preview' || stage === 'saving') && rawPhotoUri && photoMeta) {
     return (
       <View style={styles.container}>
-        {/* Preview shows what the stamp will look like */}
+        {/* Preview — this exact view is captured as the final stamped photo */}
         <PhotoStampOverlay
+          ref={stampRef}
           photoUri={rawPhotoUri}
           timestamp={photoMeta.timestamp}
           latitude={photoMeta.latitude}
