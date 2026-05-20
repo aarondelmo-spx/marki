@@ -40,12 +40,7 @@
       "expo-camera",
       "expo-location",
       "expo-media-library",
-      [
-        "@react-native-google-signin/google-signin",
-        {
-          "iosUrlScheme": "com.googleusercontent.apps.YOUR_IOS_CLIENT_ID"
-        }
-      ]
+      "expo-web-browser"
     ],
     "web": {
       "favicon": "./assets/favicon.png"

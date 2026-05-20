@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -6,13 +6,14 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
-  Image,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { signInWithGoogle, configureGoogleSignIn } from '../services/auth';
+import {
+  useGoogleAuthRequest,
+  handleGoogleResponse,
+  setAccessToken,
+} from '../services/auth';
 import { RootStackParamList } from '../types';
-
-configureGoogleSignIn();
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'Login'>;
@@ -20,18 +21,39 @@ type Props = {
 
 export default function LoginScreen({ navigation }: Props) {
   const [loading, setLoading] = useState(false);
+  const [request, response, promptAsync] = useGoogleAuthRequest();
+
+  useEffect(() => {
+    if (response?.type === 'success') {
+      setLoading(true);
+      const token = response.params?.access_token;
+      if (token) setAccessToken(token);
+
+      handleGoogleResponse(response)
+        .then((profile) => {
+          if (profile) {
+            navigation.replace('Main');
+          } else {
+            Alert.alert('Sign-in failed', 'Could not get user profile. Try again.');
+          }
+        })
+        .catch((err) => {
+          Alert.alert('Sign-in failed', err?.message || 'Something went wrong.');
+        })
+        .finally(() => setLoading(false));
+    } else if (response?.type === 'error') {
+      Alert.alert('Sign-in failed', response.error?.message || 'Google sign-in error.');
+    }
+  }, [response]);
 
   const handleSignIn = async () => {
+    if (!request) return;
     setLoading(true);
     try {
-      await signInWithGoogle();
-      navigation.replace('Main');
-    } catch (err: any) {
-      if (err?.code !== 'SIGN_IN_CANCELLED') {
-        Alert.alert('Sign-in failed', err?.message || 'Something went wrong. Please try again.');
-      }
+      await promptAsync();
     } finally {
-      setLoading(false);
+      // loading stays true until response useEffect resolves
+      if (response?.type !== 'success') setLoading(false);
     }
   };
 
@@ -45,9 +67,9 @@ export default function LoginScreen({ navigation }: Props) {
 
       <View style={styles.footer}>
         <TouchableOpacity
-          style={[styles.googleButton, loading && styles.disabled]}
+          style={[styles.googleButton, (loading || !request) && styles.disabled]}
           onPress={handleSignIn}
-          disabled={loading}
+          disabled={loading || !request}
           activeOpacity={0.8}
         >
           {loading ? (

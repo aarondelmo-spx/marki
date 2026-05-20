@@ -1,70 +1,65 @@
-import {
-  GoogleSignin,
-  statusCodes,
-} from '@react-native-google-signin/google-signin';
+import * as WebBrowser from 'expo-web-browser';
+import * as Google from 'expo-auth-session/providers/google';
 import {
   GoogleAuthProvider,
   signInWithCredential,
   signOut as firebaseSignOut,
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { AuthSessionResult } from 'expo-auth-session';
 import { auth, db } from './firebase';
 import { UserProfile } from '../types';
 
-// Configure Google Sign-In once at app start
-export function configureGoogleSignIn() {
-  GoogleSignin.configure({
-    // Get this from Google Cloud Console → Credentials → OAuth 2.0 Client IDs → Web client
-    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || 'YOUR_WEB_CLIENT_ID.apps.googleusercontent.com',
-    offlineAccess: true, // needed for Sheets API refresh token
-    scopes: [
-      'https://www.googleapis.com/auth/spreadsheets',
-    ],
+WebBrowser.maybeCompleteAuthSession();
+
+// Expo Auth Session request hook — call this in a component
+export function useGoogleAuthRequest() {
+  return Google.useAuthRequest({
+    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
   });
 }
 
-export async function signInWithGoogle(): Promise<UserProfile> {
-  await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
-  const userInfo = await GoogleSignin.signIn();
+/**
+ * Exchange the auth session response for a Firebase UserProfile.
+ * Call this after the user taps Sign In and response is set.
+ */
+export async function handleGoogleResponse(
+  response: AuthSessionResult | null
+): Promise<UserProfile | null> {
+  if (response?.type !== 'success') return null;
 
-  const { idToken } = await GoogleSignin.getTokens();
-  const credential = GoogleAuthProvider.credential(idToken);
+  const { id_token } = response.params;
+  const credential = GoogleAuthProvider.credential(id_token);
   const result = await signInWithCredential(auth, credential);
-
   const user = result.user;
 
-  // Upsert user profile in Firestore
   const userRef = doc(db, 'users', user.uid);
   const existing = await getDoc(userRef);
 
-  const profile: UserProfile = existing.exists()
-    ? (existing.data() as UserProfile)
-    : {
-        uid: user.uid,
-        name: user.displayName || user.email?.split('@')[0] || 'Unknown',
-        email: user.email || '',
-        photoURL: user.photoURL || undefined,
-        role: 'worker',
-        createdAt: Date.now(),
-      };
-
-  if (!existing.exists()) {
-    await setDoc(userRef, profile);
+  if (existing.exists()) {
+    return existing.data() as UserProfile;
   }
 
+  const profile: UserProfile = {
+    uid: user.uid,
+    name: user.displayName || user.email?.split('@')[0] || 'Unknown',
+    email: user.email || '',
+    photoURL: user.photoURL || undefined,
+    role: 'worker',
+    createdAt: Date.now(),
+  };
+
+  await setDoc(userRef, profile);
   return profile;
 }
 
 export async function signOut() {
-  await GoogleSignin.signOut();
   await firebaseSignOut(auth);
 }
 
-export async function getGoogleAccessToken(): Promise<string | null> {
-  try {
-    const tokens = await GoogleSignin.getTokens();
-    return tokens.accessToken;
-  } catch {
-    return null;
-  }
-}
+// Access token for Sheets API — stored in module scope after sign-in
+let _accessToken: string | null = null;
+export function setAccessToken(token: string) { _accessToken = token; }
+export function getGoogleAccessToken(): string | null { return _accessToken; }
