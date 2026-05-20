@@ -1,5 +1,6 @@
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
+import { Prompt } from 'expo-auth-session';
 import {
   GoogleAuthProvider,
   signInWithCredential,
@@ -18,6 +19,7 @@ export function useGoogleAuthRequest() {
     webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
     androidClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
     iosClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+    prompt: Prompt.SelectAccount,  // always show account picker
   });
 }
 
