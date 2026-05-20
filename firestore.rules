@@ -1,0 +1,25 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper: check if the caller is an admin
+    function isAdmin() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Users: read/write your own profile; admin reads all
+    match /users/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read: if request.auth != null && isAdmin();
+    }
+
+    // Photos: workers write only their own; read own or admin reads all
+    match /photos/{photoId} {
+      allow create: if request.auth != null
+                    && request.resource.data.userId == request.auth.uid;
+      allow read: if request.auth != null
+                  && (resource.data.userId == request.auth.uid || isAdmin());
+      allow update, delete: if false; // immutable once saved
+    }
+  }
+}

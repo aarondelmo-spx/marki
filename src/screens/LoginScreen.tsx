@@ -1,0 +1,134 @@
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
+  Alert,
+  Image,
+} from 'react-native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { signInWithGoogle, configureGoogleSignIn } from '../services/auth';
+import { RootStackParamList } from '../types';
+
+configureGoogleSignIn();
+
+type Props = {
+  navigation: NativeStackNavigationProp<RootStackParamList, 'Login'>;
+};
+
+export default function LoginScreen({ navigation }: Props) {
+  const [loading, setLoading] = useState(false);
+
+  const handleSignIn = async () => {
+    setLoading(true);
+    try {
+      await signInWithGoogle();
+      navigation.replace('Main');
+    } catch (err: any) {
+      if (err?.code !== 'SIGN_IN_CANCELLED') {
+        Alert.alert('Sign-in failed', err?.message || 'Something went wrong. Please try again.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.logo}>📍</Text>
+        <Text style={styles.title}>Marki</Text>
+        <Text style={styles.subtitle}>Field Documentation</Text>
+      </View>
+
+      <View style={styles.footer}>
+        <TouchableOpacity
+          style={[styles.googleButton, loading && styles.disabled]}
+          onPress={handleSignIn}
+          disabled={loading}
+          activeOpacity={0.8}
+        >
+          {loading ? (
+            <ActivityIndicator color="#4285F4" />
+          ) : (
+            <>
+              <Text style={styles.googleIcon}>G</Text>
+              <Text style={styles.googleText}>Sign in with Google</Text>
+            </>
+          )}
+        </TouchableOpacity>
+
+        <Text style={styles.hint}>Use your company Google account</Text>
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#1a1a2e',
+    justifyContent: 'space-between',
+    paddingVertical: 80,
+    paddingHorizontal: 32,
+  },
+  header: {
+    alignItems: 'center',
+    marginTop: 40,
+  },
+  logo: {
+    fontSize: 64,
+    marginBottom: 16,
+  },
+  title: {
+    fontSize: 40,
+    fontWeight: '800',
+    color: '#ffffff',
+    letterSpacing: 2,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#8888aa',
+    marginTop: 8,
+    letterSpacing: 1,
+  },
+  footer: {
+    alignItems: 'center',
+  },
+  googleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+    borderRadius: 12,
+    width: '100%',
+    justifyContent: 'center',
+    gap: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+  },
+  disabled: {
+    opacity: 0.6,
+  },
+  googleIcon: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#4285F4',
+  },
+  googleText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333333',
+  },
+  hint: {
+    color: '#666688',
+    fontSize: 13,
+    marginTop: 16,
+  },
+});
