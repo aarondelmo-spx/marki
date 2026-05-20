@@ -1,6 +1,5 @@
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
-import { Prompt } from 'expo-auth-session';
 import {
   GoogleAuthProvider,
   signInWithCredential,
@@ -19,7 +18,10 @@ export function useGoogleAuthRequest() {
     webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
     androidClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
     iosClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-    prompt: Prompt.SelectAccount,  // always show account picker
+    // "select_account consent" forces Google to always show the full
+    // account picker AND the consent screen, so the user can type a
+    // different email instead of defaulting to the cached one.
+    prompt: 'select_account consent' as any,
   });
 }
 
