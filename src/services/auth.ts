@@ -18,10 +18,16 @@ export function useGoogleAuthRequest() {
     webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
     androidClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
     iosClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-    // "select_account consent" forces Google to always show the full
-    // account picker AND the consent screen, so the user can type a
-    // different email instead of defaulting to the cached one.
-    prompt: 'select_account consent' as any,
+    // extraParams.prompt is the correct place — it maps directly to the
+    // Google OAuth URL param and is NOT overridden by the typed `prompt`
+    // field. "select_account" forces the account picker every time.
+    // "consent" forces the consent screen so the picker cannot auto-skip.
+    extraParams: {
+      prompt: 'select_account consent',
+      // max_auth_age=0 tells Google the session is "too old" and forces
+      // it to re-ask even if the user recently authenticated.
+      max_auth_age: '0',
+    },
   });
 }
 
