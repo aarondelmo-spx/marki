@@ -38,11 +38,16 @@ export default function LoginScreen({ navigation }: Props) {
           }
         })
         .catch((err) => {
-          Alert.alert('Sign-in failed', err?.message || 'Something went wrong.');
+          const msg = err?.code
+            ? `${err.code}\n${err.message}`
+            : err?.message || JSON.stringify(err);
+          Alert.alert('Sign-in failed', msg);
         })
         .finally(() => setLoading(false));
     } else if (response?.type === 'error') {
-      Alert.alert('Sign-in failed', response.error?.message || 'Google sign-in error.');
+      Alert.alert('Sign-in error', `${response.error?.code}\n${response.error?.message}`);
+    } else if (response?.type === 'dismiss') {
+      setLoading(false);
     }
   }, [response]);
 

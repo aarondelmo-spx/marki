@@ -32,8 +32,11 @@ export async function handleGoogleResponse(
 ): Promise<UserProfile | null> {
   if (response?.type !== 'success') return null;
 
-  const { id_token } = response.params;
-  const credential = GoogleAuthProvider.credential(id_token);
+  const { id_token, access_token } = response.params;
+  if (!id_token && !access_token) {
+    throw new Error(`No tokens in response. Params: ${JSON.stringify(response.params)}`);
+  }
+  const credential = GoogleAuthProvider.credential(id_token ?? null, access_token);
   const result = await signInWithCredential(auth, credential);
   const user = result.user;
 
